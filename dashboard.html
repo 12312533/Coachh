@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#FF1493">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+<!-- Ikon Aplikasi khusus layar iPhone -->
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- Menghilangkan URL bar Safari agar aplikasi tampil Full Screen -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+<!-- Mengatur warna bar baterai/sinyal di atas layar (bisa 'default', 'black', atau 'black-translucent') -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- Nama aplikasi yang akan muncul di bawah ikon HP iPhone -->
+<meta name="apple-mobile-web-app-title" content="Diet Syakira">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Sayangku 💗 - Dashboard Coach</title>
+    <!-- CDN Supabase & Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* CSS Tambahan untuk State Screen & Layout Dashboard Coach */
+        .auth-screen { display: none; }
+        .auth-screen.active { display: flex; }
+        .dashboard-screen { display: none; }
+        .dashboard-screen.active { display: block; }
+        
+        /* Modal & Overlay */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay.hidden { display: none; }
+        .hidden { display: none !important; }
+        
+        /* Status Badge */
+        .status-online { color: #2ecc71; font-weight: bold; }
+        .target-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .target-badge.safe { background: #ffe6f2; color: #FF1493; }
+        .target-badge.danger { background: #ffebee; color: #c0392b; }
+        
+        /* Thumbnail & Video */
+        .dash-thumb { width: 45px; height: 45px; object-fit: cover; border-radius: 8px; cursor: pointer; transition: transform 0.2s; }
+        .dash-thumb:hover { transform: scale(1.1); }
+        .video-box { width: 100%; height: 250px; background: #000; border-radius: 12px; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .video-box video { width: 100%; height: 100%; object-fit: cover; }
+        .cam-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; padding: 1rem; }
+        
+        /* Kalender Mini Dashboard */
+        .calendar-grid-dash { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; margin-top: 10px; }
+        .dash-cal-day { padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.5); cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+        .dash-cal-day:hover { background: #ffd1dc; }
+        .dash-cal-day.has-data { border: 2px solid #FF1493; }
+        .dash-cal-day.selected { background: #FF1493; color: white; }
+    </style>
+</head>
+<body style="background: linear-gradient(135deg, #fff0f5 0%, #ffe4e1 100%); min-height: 100vh; font-family: 'Poppins', sans-serif;">
+
+    <!-- 1. SCREEN 1: KODE PAIRING (CONNECT) -->
+    <div id="connectScreen" class="auth-screen active" style="min-height: 100vh; justify-content: center; align-items: center; padding: 1rem;">
+        <div class="glass-panel" style="background: rgba(255, 255, 255, 0.85); padding: 2.5rem; border-radius: 24px; box-shadow: 0 10px 30px rgba(255, 105, 180, 0.2); text-align: center; max-width: 420px; width: 100%;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;" class="bounce-text">💖✨</div>
+            <h1 style="font-family: 'Fredoka', sans-serif; color: #d81b60; font-size: 1.8rem; margin-bottom: 0.5rem;">HUBUNGKAN DENGAN SAYANGKU</h1>
+            <p style="color: #666; font-size: 0.9rem; margin-bottom: 1.5rem;">Masukkan Connect Code yang tertera di aplikasi Bebeee</p>
+            
+            <div style="margin-bottom: 1.2rem;">
+                <input type="text" id="connectCodeInput" placeholder="Contoh: SYAKIRA-XXXX" autocomplete="off" style="width: 100%; padding: 1rem; border: 2px solid #ffb6c1; border-radius: 14px; font-family: 'Fredoka', sans-serif; font-size: 1.2rem; text-align: center; text-transform: uppercase; outline: none; background: #fff;">
+            </div>
+            
+            <button id="connectBtn" class="btn-primary" style="width: 100%; padding: 1rem; border-radius: 14px; background: #FF1493; color: white; border: none; font-family: 'Fredoka', sans-serif; font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 20, 147, 0.4); transition: 0.2s;">CONNECT 💗</button>
+            
+            <p id="connectError" class="hidden" style="color: #e74c3c; font-size: 0.85rem; margin-top: 1rem; font-weight: 500;">Kode tidak ditemukan atau salah sayang 😭</p>
+        </div>
+    </div>
+
+    <!-- 2. SCREEN 2: DASHBOARD UTAMA COACH -->
+    <div id="dashboardScreen" class="dashboard-screen" style="padding: 2rem 1rem; max-width: 1200px; margin: 0 auto;">
+        
+        <!-- Header Dashboard -->
+        <header style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.8); padding: 1.2rem 2rem; border-radius: 20px; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+            <div>
+                <h1 style="font-family: 'Fredoka', sans-serif; color: #d81b60; font-size: 1.5rem; margin: 0;">DASHBOARD MONITORING SAYANGKU</h1>
+                <p style="margin: 0; font-size: 0.9rem; color: #666;" id="connectionStatusText">🟢 Menghubungkan...</p>
+            </div>
+            <div style="font-family: 'Fredoka', sans-serif; background: #ffe6f2; padding: 0.5rem 1rem; border-radius: 12px; color: #FF1493; font-weight: 600;">
+                COACH MAS ANANG 👑
+            </div>
+        </header>
+
+        <!-- Grid Layout Utama -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+            
+            <!-- Kolom Kiri: Ringkasan Kalori & Riwayat Makanan -->
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Target Harian -->
+                <section class="glass-panel" style="background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h2 style="font-family: 'Fredoka', sans-serif; font-size: 1.2rem; color: #333; margin: 0;">KONSUMSI KALORI (<span id="dashSelectedDateLabel">Hari Ini</span>)</h2>
+                        <span id="targetStatusBadge" class="target-badge safe">AMAN 💗</span>
+                    </div>
+                    
+                    <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.8rem;">
+                        <span id="dashTotalKcal" style="font-family: 'Fredoka', sans-serif; font-size: 2.2rem; font-weight: 700; color: #FF1493;">0</span>
+                        <span style="color: #7f8c8d; font-weight: 500;">/ 1200 KCAL</span>
+                    </div>
+
+                    <div style="width: 100%; height: 12px; background: #eee; border-radius: 6px; overflow: hidden;">
+                        <div id="dashProgressBar" style="width: 0%; height: 100%; background: #FF1493; transition: width 0.4s ease;"></div>
+                    </div>
+                </section>
+
+                <!-- Tabel Makanan Harian -->
+                <section class="glass-panel" style="background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                    <h2 style="font-family: 'Fredoka', sans-serif; font-size: 1.2rem; color: #333; margin-bottom: 1rem;">RIWAYAT MAKANAN 🍽️</h2>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid #eee; color: #888; font-size: 0.85rem;">
+                                    <th style="padding: 8px;">FOTO</th>
+                                    <th style="padding: 8px;">MAKANAN</th>
+                                    <th style="padding: 8px;">PORSI</th>
+                                    <th style="padding: 8px;">KALORI</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashFoodBody">
+                                <tr><td colspan="4" style="text-align:center; color:#888; font-style:italic; padding: 1.5rem;">Belum ada makanan dicatat.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Grafik Berat Badan -->
+                <section class="glass-panel" style="background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                    <h2 style="font-family: 'Fredoka', sans-serif; font-size: 1.2rem; color: #333; margin-bottom: 1rem;">PROGRESS BERAT BADAN ⚖️</h2>
+                    <div style="height: 220px; position: relative;">
+                        <canvas id="dashWeightChart"></canvas>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Kolom Kanan: Live Camera & Kalender -->
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- WebRTC Live Camera Coach -->
+                <!-- WebRTC Live Camera Coach -->
+                <section class="glass-panel" style="background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                    <h2 style="font-family: 'Fredoka', sans-serif; font-size: 1.2rem; color: #333; margin-bottom: 1rem;">LIVE MONITORING 🔴</h2>
+                    <div class="video-box">
+                        <button id="btnSwitchCamCoach" style="width: 100%; margin-top: 10px; padding: 0.8rem; background: #3498db; color: white; border: none; border-radius: 12px; cursor: pointer;">🔄 Ubah Lensa Kamera Syakira</button>
+                        <video id="remoteVideo" autoplay playsinline muted></video>
+                        <div id="camOverlay" class="cam-overlay">
+                            <i class="fas fa-video-slash" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                            <!-- Ubah teks default agar selaras dengan sistem auto-integrasi -->
+                            <p id="camOverlayText" style="font-size: 0.85rem; margin: 0;">Menunggu Syakira Mengizinkan Kamera...</p>
+                        </div>
+                    </div>
+                </section>
+                        </div>
+                    </div>
+                    <button id="requestCamBtn" style="width: 100%; margin-top: 1rem; padding: 0.8rem; background: #e74c3c; color: white; border: none; border-radius: 12px; font-family: 'Fredoka', sans-serif; font-weight: 600; cursor: pointer; transition: 0.2s;">REQUEST CAMERA 🔴</button>
+                </section>
+
+                <!-- Kalender Navigasi -->
+                <section class="glass-panel" style="background: rgba(255,255,255,0.85); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <button id="dashPrevMonth" style="background: none; border: none; cursor: pointer; color: #FF1493;"><i class="fas fa-chevron-left"></i></button>
+                        <h3 id="dashMonthYear" style="font-family: 'Fredoka', sans-serif; font-size: 1rem; color: #333; margin: 0;">September 2026</h3>
+                        <button id="dashNextMonth" style="background: none; border: none; cursor: pointer; color: #FF1493;"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; color: #888; font-weight: bold; margin-bottom: 5px;">
+                        <span>Min</span><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span>
+                    </div>
+                    <div id="dashCalendarGrid" class="calendar-grid-dash"></div>
+                </section>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal Preview Gambar Makanan -->
+    <div id="dashImgModal" class="modal-overlay hidden">
+        <div style="background: white; padding: 1rem; border-radius: 16px; max-width: 90%; max-height: 90vh; position: relative;">
+            <button id="dashCloseModal" style="position: absolute; top: -10px; right: -10px; background: #FF1493; color: white; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold;">&times;</button>
+            <img id="dashViewerImg" src="" alt="Bukti Foto" style="max-width: 100%; max-height: 80vh; border-radius: 12px; display: block;">
+        </div>
+    </div>
+<!-- Script Monitoring Coach -->
+    <script src="dashboard.js"></script>
+</body>
+</html>
+</body>
+</html>
